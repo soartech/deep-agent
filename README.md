@@ -53,8 +53,8 @@ source ~/.bashrc
 ## Running
 
 ```
-# training
+# Training
 python -m deepagent.experiments.experiment_runner -p nature_ppo_racer -et train
-# testing
+# Testing
 python -m deepagent.experiments.experiment_runner -p nature_ppo_racer -et test
 ```
