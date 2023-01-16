@@ -1,0 +1,16 @@
+*.pyc
+*.h5f
+*.h5
+*.out
+*.log
+*.png
+*.demo
+*.c
+*.so
+deepagent.egg-info/
+.idea
+build/
+dist/
+/.project
+deepagent/lariat/
+wandb/
