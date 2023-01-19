@@ -13,6 +13,7 @@ git clone https://github.com/soartech/baselines.git
 
 pip install -e deep-agent
 pip install -e baselines
+```
 
 ## Environments Supported
 - OpenAI Atari
