@@ -46,24 +46,9 @@ def setup_multi_agent(env_wrapper):
     multi_agent_training_class = agent_factory.multi_agent_training_class()
     return multi_agent_training_class(environment_wrapper=env_wrapper, agent_factory=agent_factory)
 
-
-
 import os
 from typing import List, Tuple
 import numpy as np
-from mlagents_envs.communicator_objects.agent_info_action_pair_pb2 import (
-    AgentInfoActionPairProto,
-)
-from mlagents_envs.rpc_utils import behavior_spec_from_proto, steps_from_proto
-from mlagents_envs.base_env import BehaviorSpec
-from mlagents_envs.communicator_objects.brain_parameters_pb2 import BrainParametersProto
-from mlagents_envs.communicator_objects.demonstration_meta_pb2 import (
-    DemonstrationMetaProto,
-)
-from mlagents_envs.timers import timed, hierarchical_timer
-from google.protobuf.internal.decoder import _DecodeVarint32  # type: ignore
-from google.protobuf.internal.encoder import _EncodeVarint  # type: ignore
-
 
 INITIAL_POS = 33
 SUPPORTED_DEMONSTRATION_VERSIONS = frozenset([0, 1])
@@ -94,62 +79,6 @@ def get_demo_files(path: str) -> List[str]:
         raise FileNotFoundError(
             f"The demonstration file or directory {path} does not exist."
         )
-
-def load_demonstration(
-    file_path: str,
-) -> Tuple[BehaviorSpec, List[AgentInfoActionPairProto], int]:
-    """
-    Loads and parses a demonstration file.
-    :param file_path: Location of demonstration file (.demo).
-    :return: BrainParameter and list of AgentInfoActionPairProto containing demonstration data.
-    """
-
-    # First 32 bytes of file dedicated to meta-data.
-    file_paths = get_demo_files(file_path)
-    behavior_spec = None
-    brain_param_proto = None
-    info_action_pairs = []
-    total_expected = 0
-    for _file_path in file_paths:
-        with open(_file_path, "rb") as fp:
-            with hierarchical_timer("read_file"):
-                data = fp.read()
-            next_pos, pos, obs_decoded = 0, 0, 0
-            while pos < len(data):
-                next_pos, pos = _DecodeVarint32(data, pos)
-                if obs_decoded == 0:
-                    meta_data_proto = DemonstrationMetaProto()
-                    meta_data_proto.ParseFromString(data[pos : pos + next_pos])
-                    if (
-                        meta_data_proto.api_version
-                        not in SUPPORTED_DEMONSTRATION_VERSIONS
-                    ):
-                        raise RuntimeError(
-                            f"Can't load Demonstration data from an unsupported version ({meta_data_proto.api_version})"
-                        )
-                    total_expected += meta_data_proto.number_steps
-                    pos = INITIAL_POS
-                if obs_decoded == 1:
-                    brain_param_proto = BrainParametersProto()
-                    brain_param_proto.ParseFromString(data[pos : pos + next_pos])
-                    pos += next_pos
-                if obs_decoded > 1:
-                    agent_info_action = AgentInfoActionPairProto()
-                    agent_info_action.ParseFromString(data[pos : pos + next_pos])
-                    if behavior_spec is None:
-                        behavior_spec = behavior_spec_from_proto(
-                            brain_param_proto, agent_info_action.agent_info
-                        )
-                    info_action_pairs.append(agent_info_action)
-                    if len(info_action_pairs) == total_expected:
-                        break
-                    pos += next_pos
-                obs_decoded += 1
-    if not behavior_spec:
-        raise RuntimeError(
-            f"No BrainParameters found in demonstration file at {file_path}."
-        )
-    return behavior_spec, info_action_pairs, total_expected
 
 
 def get_state_shape(file_path: str) -> Tuple[int]:

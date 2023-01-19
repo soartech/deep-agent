@@ -8,8 +8,6 @@ from collections import defaultdict
 from enum import Enum
 from typing import Callable, List, NamedTuple, Dict, Tuple, Union, Type
 
-from mlagents_envs.side_channel.engine_configuration_channel import EngineConfig
-from pysc2.env.sc2_env import Race
 from tensorflow.keras.layers import PReLU, Conv2D
 from tensorflow.python.keras.layers.convolutional import Conv
 
