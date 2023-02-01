@@ -241,7 +241,7 @@ class RacerUgv(Unit):
         unit_type = 'RacerUgv'
         speed = 0.3
         health = 100.0
-        vision_range = 5
+        vision_range = 2
         size = 1
 
         super().__init__(tag=tag, x=x, y=y, size=size, unit_type=unit_type, speed=speed, health=health,

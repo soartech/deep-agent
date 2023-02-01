@@ -21,6 +21,7 @@ from deepagent.envs.spaces import DeepAgentSpace, FullVisibilityTypes
 from deepagent.experiments.params import params
 from deepagent.envs.racer.utils import Camera, BLACK
 
+SEED_OVERRIDE = 5
 
 class RacerEnv(AbstractDeepAgentDictionaryEnv):
     def __init__(self, random_seed=1234):
@@ -28,13 +29,14 @@ class RacerEnv(AbstractDeepAgentDictionaryEnv):
         self.slowest = 2.0
         self.fastest = 31.0
 
-        np.random.seed(4)
-        random.seed(4)
+        np.random.seed(SEED_OVERRIDE)
+        random.seed(SEED_OVERRIDE)
         map_gen_config = params.Racer.map_gen_config
         self.playable_area = PlayableArea(t=0, l=0, b=map_gen_config.y, r=map_gen_config.x)
-        self.goal_areas = [GoalArea(location=pg.Vector2(random.randint(0, self.playable_area.r - 11),
-                                                        random.randint(0, self.playable_area.b - 11)),
-                                    size=pg.Vector2(random.randint(5, 10), random.randint(5, 10))) for _ in range(1)]
+        # self.goal_areas = [GoalArea(location=pg.Vector2(random.randint(0, self.playable_area.r - 11),
+        #                                                 random.randint(0, self.playable_area.b - 11)),
+        #                             size=pg.Vector2(random.randint(5, 10), random.randint(5, 10))) for _ in range(1)]
+        self.goal_areas = [GoalArea(location=pg.Vector2(2, 2), size=pg.Vector2(2, 2)) for _ in range(1)]
         ga = self.goal_areas[0]
         goal_rect = [int(ga.location.x), int(ga.location.y), int(ga.location.x + ga.size.x), int(ga.location.y + ga.size.y)]
 
@@ -56,8 +58,8 @@ class RacerEnv(AbstractDeepAgentDictionaryEnv):
             random.seed(random_seed)
             np.random.seed(random_seed)
         else:
-            random.seed(4)
-            np.random.seed(4)
+            random.seed(SEED_OVERRIDE)
+            np.random.seed(SEED_OVERRIDE)
         if params.RuntimeParams.is_testing():
             random.seed(1241565)
             np.random.seed(1241565)
@@ -92,7 +94,7 @@ class RacerEnv(AbstractDeepAgentDictionaryEnv):
         pg.mixer.quit()
         width, height = 1027, 768
         self.screen = pg.display.set_mode((width, height), pg.RESIZABLE)
-        pg.display.set_caption('Python SC2')
+        pg.display.set_caption('Racer')
 
         # Create The Background
         self.background = pg.Surface(self.screen.get_size())

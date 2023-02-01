@@ -8,7 +8,7 @@ from deepagent.experiments.params.params import EnvironmentParams, TrainingParam
     AgentParams, TrainingFunctions, NetworkInit, MapGenConfig, Racer
 
 EnvironmentParams.set(
-    environment='test_logans_run_004_melee',
+    environment='Racer',
     env_type=EnvType.racer,
     num_envs=2,
     env_render=True
@@ -56,13 +56,13 @@ AgentParams.set(
 
 Racer.set(
     frame_stack=1,
-    map_gen_config=MapGenConfig(y=64, x=64, episodes_per_map=1000),
+    map_gen_config=MapGenConfig(y=20, x=20, episodes_per_map=1000),
     include_a_priori_cost=False,
-    nadded_walls=5,
-    ndeleted_walls=10,
+    nadded_walls=3,
+    ndeleted_walls=3,
     max_delta=0,
     nspeeds=1,
-    randomize_maps=True,
+    randomize_maps=False,
     patch_octaves=6,
     map_octaves=4,
     wall_octaves=9,
