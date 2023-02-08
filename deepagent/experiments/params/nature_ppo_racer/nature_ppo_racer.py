@@ -10,8 +10,8 @@ from deepagent.experiments.params.params import EnvironmentParams, TrainingParam
 EnvironmentParams.set(
     environment='Racer',
     env_type=EnvType.racer,
-    num_envs=2,
-    env_render=True
+    num_envs=8,
+    env_render=False
 )
 
 
@@ -34,7 +34,7 @@ TrainingFunctions.set(
 )
 
 TrainingParams.set(
-    steps=2000000,
+    steps=1000000,
     gamma=0.99,
     update_interval=128,
     num_updates=4,
