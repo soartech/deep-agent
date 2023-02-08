@@ -214,7 +214,7 @@ class RacerEnv(AbstractDeepAgentDictionaryEnv):
                 dx = goal_x - x
                 dy = goal_y - y
 
-                near_goal = (dx*dx + dy*dy < 400)
+                near_goal = (dx*dx + dy*dy < min(self.playable_area.width, self.playable_area.height) / 4.0)
 
         else:
             x, y = self.get_random_point(self.playable_area.center, [self.playable_area.width, self.playable_area.height])
