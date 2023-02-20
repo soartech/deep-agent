@@ -478,12 +478,13 @@ class RacerEnv(AbstractDeepAgentDictionaryEnv):
         False
 
     def close(self):
-        print('Num games: ', len(self.terrain.dijkstra_times))
-        average_time = sum(self.terrain.dijkstra_times) / len(self.terrain.dijkstra_times)
-        print('Average dijkstra time: ', average_time)
-        average_time = sum(self.terrain.agent_times) / len(self.terrain.agent_times)
-        print('Average agent time: ', average_time)
-        print('Incomplete maps: ', self.terrain.incomplete_maps)
+        if params.RuntimeParams.is_testing():
+            print('Num games: ', len(self.terrain.dijkstra_times))
+            average_time = sum(self.terrain.dijkstra_times) / len(self.terrain.dijkstra_times)
+            print('Average dijkstra time: ', average_time)
+            average_time = sum(self.terrain.agent_times) / len(self.terrain.agent_times)
+            print('Average agent time: ', average_time)
+            print('Incomplete maps: ', self.terrain.incomplete_maps)
 
     @property
     def obs_index(self):

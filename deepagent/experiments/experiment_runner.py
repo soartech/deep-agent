@@ -229,13 +229,13 @@ def pre_train():
 def train(multi_agent: AbstractAgentTrainer):
     multi_agent.train(steps=params.TrainingParams.steps, gamma=params.TrainingParams.gamma,
                       lam=params.TrainingParams.lam)
-    multi_agent.write_report_summary()
+    #multi_agent.write_report_summary()
 
 
 def test(multi_agent: AbstractAgentTrainer, test_suffix: str = ''):
     multi_agent.test(num_episodes=params.TestingParams.num_episodes, gamma=params.TestingParams.gamma,
                             testing_suffix=test_suffix)
-    multi_agent.write_report_summary()
+    #multi_agent.write_report_summary()
 
 
 def population_test(multi_agent: AbstractAgentTrainer):
