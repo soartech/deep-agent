@@ -1,7 +1,7 @@
 from deepagent.agents.a2c import A2CAgentTrainer
 from deepagent.agents.common import AbstractAgentFactory, AgentFactoryException
 from deepagent.agents.keyboard_agent import KeyboardGradient
-from deepagent.agents.policy_gradient import A2C, PPO, PPORND, PPOLSTM
+from deepagent.agents.policy_gradient import A2C, PPO
 from deepagent.agents.ppo import PPOAgentTrainer
 from deepagent.agents.random_agent import RandomGradient, DebugAgentTester, RacerDijsktraTester
 from deepagent.envs.spaces import DeepAgentSpace

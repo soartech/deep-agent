@@ -147,22 +147,28 @@ class A2C(PolicyGradient):
         self.actor_critic.optimizer=RMSprop(clipnorm=0.5, rho=0.99, epsilon=1e-5)
 
     @tf.function
-    def get_local_policy_action_fn(self, state):
-        state = self.state_space.get_policy_network_state(state)
-        ret = self.actor_critic(state)
+    def get_local_policy_action(self, state):
+        state_actor = self.state_space.get_policy_network_state(state)
+        state_critic = self.state_space.get_value_function_state(state)
+        if self.state_space.full_visibility_state:
+            # different state representations, we need to do inference twice
+            ret_actor = self.actor_critic(state_actor)
+            ret_critic = self.actor_critic(state_critic)
+        else:
+            # state representations are the same, only do inference once
+            ret_actor = self.actor_critic(state_actor)
+            ret_critic = ret_actor
 
         if self.is_single_action():
-            actions = ret[0]
-            v = ret[2]
+            actions = ret_actor[0]
+            v = ret_critic[2]
         else:
             actions = []
             for i in range(len(self.action_space.vector_space.nvec)):
-                actions.append(ret[i])
-                v = ret[-1]
+                actions.append(ret_actor[i])
+                v = ret_critic[-1]
 
         return actions, v
-
-        return action, v
 
     @tf.function
     def v_loss(self, R_batch, critic_inputs):
@@ -320,17 +326,25 @@ class PPO(PolicyGradient):
 
     @tf.function
     def get_local_policy_action(self, state):
-        state = self.state_space.get_policy_network_state(state)
-        ret = self.actor_critic(state)
+        state_actor = self.state_space.get_policy_network_state(state)
+        state_critic = self.state_space.get_value_function_state(state)
+        if self.state_space.full_visibility_state:
+            # different state representations, we need to do inference twice
+            ret_actor = self.actor_critic(state_actor)
+            ret_critic = self.actor_critic(state_critic)
+        else:
+            # state representations are the same, only do inference once
+            ret_actor = self.actor_critic(state_actor)
+            ret_critic = ret_actor
 
         if self.is_single_action():
-            actions = ret[0]
-            v = ret[2]
+            actions = ret_actor[0]
+            v = ret_critic[2]
         else:
             actions = []
             for i in range(len(self.action_space.vector_space.nvec)):
-                actions.append(ret[i])
-                v = ret[-1]
+                actions.append(ret_actor[i])
+                v = ret_critic[-1]
 
         return actions, v
 
@@ -629,294 +643,3 @@ class PPO(PolicyGradient):
 
         return num_correct
 
-
-class PPOLSTM(PPO):
-    def __init__(self, unit_type, actor_critic, actor_critic_inference, custom_objects, action_space: DeepAgentSpace, state_space: DeepAgentSpace):
-        super(PPOLSTM, self).__init__(unit_type, actor_critic, custom_objects, action_space, state_space)
-
-        self.memory = PPOLSTMMemory()
-        self.actor_critic_inference = actor_critic_inference
-        self.actor_critic_inference.set_weights(self.actor_critic.get_weights())
-
-    @tf.function
-    def get_local_policy_action(self, state):
-        # insert sequence dimension into state
-        newstate = []
-        for s in state:
-            s = tf.squeeze(s, axis=1)
-            s = tf.expand_dims(s, axis=1)
-            print('get_local_policy_action_fn: s.shape:',s.shape)
-            newstate.append(s)
-        ret = self.actor_critic_inference(newstate)
-
-        # remove sequence dimension from action and value
-        action = tf.squeeze(ret[0], axis=1)
-        v = tf.squeeze(ret[2], axis=1)
-
-        return action, v
-
-    def update_networks(self, step_count, states, actions, rewards, gae, previous_weights=None):
-        PPO.update_networks(self, step_count, states, actions, rewards, gae, previous_weights)
-
-        # update inference weights to match training
-        self.actor_critic_inference.set_weights(self.actor_critic.get_weights())
-
-# TODO update PPOCuriosity
-# class PPOCuriosity(PolicyGradient):
-#     def __init__(self, unit_type, policy_network, q_network, forward_model, encoder, custom_objects, batch_size=32):
-#         lr1 = 0.00001
-#         lr2 = 0.00001
-#
-#         super(PPOCuriosity, self).__init__(unit_type, custom_objects, policy_network, q_network, batch_size, q_lr=lr1, policy_lr=lr2)
-#         # target_q and target_policy are used for v_old and pi_old
-#
-#         self.local_q.optimizer=Adam(clipnorm=0.5, lr=lr1, epsilon=1e-5)
-#         self.local_policy.optimizer=Adam(clipnorm=0.5, lr=lr2, epsilon=1e-5)
-#
-#         from deepagent.experiments.params import params
-#         self.writer = tf.summary.FileWriter(os.path.join(params.ModuleParams.params_dir, 'logs'))
-#
-#         r_placeholder = K.placeholder(shape=(None, 1))
-#         intrinsic_r_placeholder = K.placeholder(shape=(None, 1))
-#         advantage_placeholder = K.placeholder(shape=(None, 1))
-#         a_placeholder = K.placeholder(shape=self.local_policy.outputs[0].shape)
-#         ec_placeholder = K.variable(0.0)
-#         clip_range_placeholder = K.variable(0.1)
-#
-#         # Not in the paper, but PPO2 in OpenAI baselines repo also clips the value function
-#         q_mse = K.mean(K.square(r_placeholder - self.local_q.outputs[0]), axis=-1)
-#         q_clipped = self.target_q.outputs[0] + tf.clip_by_value(self.local_q.outputs[0] - self.target_q.outputs[0], -1.0*clip_range_placeholder, clip_range_placeholder)
-#         q_clipped_mse = K.mean(K.square(r_placeholder - q_clipped), axis=-1)
-#         q_loss = 0.5*K.maximum(q_mse, q_clipped_mse)
-#
-#         intrinsic_q_mse = K.mean(K.square(intrinsic_r_placeholder - self.local_q.outputs[1]), axis=-1)
-#         intrinsic_q_clipped = self.target_q.outputs[1] + tf.clip_by_value(self.local_q.outputs[1] - self.target_q.outputs[1], -1.0*clip_range_placeholder, clip_range_placeholder)
-#         intrinsic_q_clipped_mse = K.mean(K.square(intrinsic_r_placeholder - intrinsic_q_clipped), axis=-1)
-#         intrinsic_q_loss = 0.5 * K.maximum(intrinsic_q_mse, intrinsic_q_clipped_mse)
-#
-#         total_q_loss = q_loss + intrinsic_q_loss
-#
-#         # learning_phase defines whether or not things like dropout that should only be used during training should be turned on (1 turns them on)
-#         updates = self.local_q.optimizer.get_updates(self.local_q.trainable_weights, self.local_q.constraints, total_q_loss)
-#         self.grad_q = K.function(
-#             [r_placeholder] + [intrinsic_r_placeholder] + self.local_q.inputs + self.target_q.inputs + [clip_range_placeholder] + [K.learning_phase()],
-#             [total_q_loss],
-#             updates=updates)
-#
-#         ratio = K.sum(K.batch_flatten(self.local_policy.outputs[0]) * K.batch_flatten(a_placeholder), axis=-1) / K.stop_gradient(K.sum(K.batch_flatten(self.target_policy.outputs[0]) * K.batch_flatten(a_placeholder), axis=-1))
-#         clipped_ratio = tf.clip_by_value(ratio, 1.0 - clip_range_placeholder, 1.0 + clip_range_placeholder)
-#         advantage = K.squeeze(advantage_placeholder, axis=-1)
-#         #entropy = K.categorical_crossentropy(K.batch_flatten(self.local_policy.outputs[0]), K.batch_flatten(self.local_policy.outputs[0]), from_logits=False)
-#         p_loss = (-1.0 * K.minimum(ratio*advantage,clipped_ratio*advantage))
-#
-#         self.grad_p = K.function(
-#             self.local_policy.inputs + [a_placeholder] + self.target_policy.inputs + [advantage_placeholder] + [ec_placeholder] + [clip_range_placeholder] + [K.learning_phase()],
-#             [p_loss],
-#             updates=self.local_policy.optimizer.get_updates(self.local_policy.trainable_weights, self.local_policy.constraints, p_loss))
-#
-#         self.forward_model = forward_model
-#         self.encoder = encoder
-#         self.forward_model.optimizer=Adam(clipnorm=0.5, lr=lr2, epsilon=1e-5)
-#         self.networks['forward_model'] = self.forward_model
-#         self.target_forward_model = clone_model(forward_model, custom_objects=custom_objects)
-#
-#         prediction_mse = K.mean(K.square(self.forward_model.outputs[0] - self.encoder.outputs[0]), axis=-1)
-#         prediction_clipped = self.target_forward_model.outputs[0] + tf.clip_by_value(self.forward_model.outputs[0] - self.target_forward_model.outputs[0], -1.0*clip_range_placeholder, clip_range_placeholder)
-#         prediction_clipped_mse = K.mean(K.square(prediction_clipped - self.encoder.outputs[0]), axis=-1)
-#         prediction_loss = 0.5*K.maximum(prediction_mse, prediction_clipped_mse)
-#         self.grad_prediction = K.function(
-#             self.forward_model.inputs + self.encoder.inputs + self.target_forward_model.inputs + [clip_range_placeholder] + [K.learning_phase()],
-#             [prediction_loss],
-#             updates=self.forward_model.optimizer.get_updates(self.forward_model.trainable_weights, self.forward_model.constraints, prediction_loss))
-#
-#     def update_networks(self, step_count):
-#         from deepagent.experiments.params.params import TrainingFunctions
-#
-#         lr = TrainingFunctions.lr_schedule(step_count)
-#
-#         entropy_coefficient = TrainingFunctions.curiosity_schedule(step_count)
-#         clip = TrainingFunctions.clip_schedule(step_count)
-#
-#         summary = tf.Summary(value=[tf.Summary.Value(tag='lr', simple_value=lr),
-#                                     tf.Summary.Value(tag='clip', simple_value=clip),
-#                                     tf.Summary.Value(tag='entropy_coefficient', simple_value=entropy_coefficient)])
-#         self.writer.add_summary(summary, step_count)
-#
-#         K.set_value(self.local_q.optimizer.lr, lr)
-#         K.set_value(self.local_policy.optimizer.lr, lr)
-#         K.set_value(self.forward_model.optimizer.lr, lr)
-#
-#         # weights at start of update
-#         self.target_q.set_weights(self.local_q.get_weights())
-#         self.target_policy.set_weights(self.local_policy.get_weights())
-#         self.target_forward_model.set_weights(self.forward_model.get_weights())
-#
-#         for state0_batch, action_batch, total_reward_batch, intrinsic_return_batch, state1_batch, gae_batch, giae_batch in self.memory.batch_generator(self.batch_size):
-#             # normalize the advantage
-#             # Not in the paper, but PPO2 in OpenAI baselines repo normalizes the advantage
-#             normalized_gae_batch = (gae_batch - np.mean(gae_batch)) / (np.std(gae_batch) + 1e-8)
-#             normalized_gae_batch = np.expand_dims(normalized_gae_batch, axis=-1)
-#
-#             normalized_giae_batch = (giae_batch - np.mean(giae_batch)) / (np.std(giae_batch) + 1e-8)
-#             normalized_giae_batch = np.expand_dims(normalized_giae_batch, axis=-1)
-#
-#             state0_batch = np.squeeze(state0_batch)
-#             state1_batch = np.squeeze(state1_batch)
-#
-#             total_reward_batch = np.expand_dims(total_reward_batch, axis=-1)
-#             intrinsic_return_batch = np.expand_dims(intrinsic_return_batch, axis=-1)
-#
-#             # update forward model
-#             pred_loss = self.grad_prediction([state0_batch] + [state1_batch] + [state0_batch] + [clip] + [1.0])
-#
-#             # update policy and q
-#             q_loss = self.grad_q([total_reward_batch] + [intrinsic_return_batch] + [state0_batch] + [state0_batch] + [clip] + [1.0])
-#             #print('q_loss', q_loss)
-#             #print('loss shape', q_loss[0].shape)
-#
-#             p_loss = self.grad_p([state0_batch] + [action_batch] + [state0_batch] + [normalized_gae_batch + normalized_giae_batch] + [entropy_coefficient] + [clip] + [1.0])
-#             #print('p_loss', p_loss)
-#             #print('loss shape', p_loss[0].shape)
-#
-#             summary = tf.Summary(value=[tf.Summary.Value(tag='q_loss', simple_value=np.mean(q_loss[0])),
-#                                         tf.Summary.Value(tag='p_loss', simple_value=np.mean(p_loss[0])),
-#                                         tf.Summary.Value(tag='prediction_loss', simple_value=np.mean(pred_loss[0]))])
-#             self.writer.add_summary(summary, step_count)
-
-
-class PPORND(PPO):
-    def __init__(self, unit_type, actor_critic, random_network, random_network_predictor, custom_objects, action_space: DeepAgentSpace, state_space: DeepAgentSpace):
-        super(PPORND, self).__init__(unit_type, actor_critic, custom_objects, action_space, state_space)
-
-        self.random_network_estimator = clone_model_with_new_weights(random_network_predictor, custom_objects)
-        self.random_network_estimator.optimizer = Adam(epsilon=1e-8)
-        self.networks['random_network_estimator'] = self.random_network_estimator
-        self.random_network = clone_model_with_new_weights(random_network, custom_objects=custom_objects)
-        self.networks['random_network'] = self.random_network
-
-    def get_local_policy_action_fn(self, state, step_count):
-        ret = self.actor_critic(state)
-        action = ret[0]
-        v = ret[2]
-        iv = ret[3]
-
-        max_prob = tf.math.reduce_max(action)
-
-        with self.writer.as_default():
-            tf.summary.scalar('maximum_probability', max_prob, step=step_count)
-
-        return action, v, iv
-
-    @tf.function
-    def prediction_loss(self, inputs, mean, var):
-        print('pred batch shape')
-        pred_batch = tf.unstack(inputs, axis=-1)[-1]
-        print(pred_batch.shape)
-        pred_batch = tf.expand_dims(pred_batch, axis=-1)
-        print(pred_batch.shape)
-        pred_batch = (pred_batch - mean) / tf.sqrt(var)
-        print(pred_batch.shape)
-        pred_batch = tf.clip_by_value(pred_batch, -5.0, 5.0)
-        print(pred_batch.shape)
-
-        # inputs
-        # all dimensions are (batch_size, )
-        print('random output shape')
-        random_network_output = self.random_network(pred_batch)
-        print(random_network_output.shape)
-        predicted_output = self.random_network_estimator(pred_batch)
-        print(predicted_output.shape)
-
-        prediction_square = tf.square(random_network_output - predicted_output)
-        # dimension reduced to scalar value by mean
-        prediction_loss = 0.5 * tf.reduce_mean(prediction_square)
-        print('loss shape')
-        print(prediction_loss.shape)
-
-        return prediction_loss
-
-    @tf.function
-    def v_loss(self, R_batch, IR_batch, critic_inputs):
-        # inputs
-        # all dimensions are (batch_size, )
-        V = tf.squeeze(self.actor_critic(critic_inputs)[2])
-        print('V shape')
-        print(V.shape)
-        R = tf.stop_gradient(tf.squeeze(R_batch))
-        print(R.shape)
-        VI = tf.squeeze(self.actor_critic(critic_inputs)[3])
-        print(VI.shape)
-        IR = tf.stop_gradient(tf.squeeze(IR_batch))
-        print(IR.shape)
-
-        V_square = tf.square(R - V)
-        VI_square = tf.square(IR - VI)
-        # dimension reduced to scalar value by mean
-        V_loss = 0.5 * tf.reduce_mean(V_square) + 0.5 * tf.reduce_mean(VI_square)
-        print(V_loss.shape)
-
-        return V_loss
-
-    @tf.function
-    def loss(self, R_batch, IR_batch, action_batch, advantage_batch, clip_range, entropy_coefficient, inputs):
-        return self.v_loss(R_batch, IR_batch, inputs) + self.pi_loss(action_batch, advantage_batch, clip_range, entropy_coefficient, inputs)
-
-    def update_networks(self, step_count, states, actions, rewards, intrinsic_rewards, gae, states1, mean, var):
-        from deepagent.experiments.params.params import TrainingFunctions
-
-        lr = TrainingFunctions.lr_schedule(step_count)
-        clip = TrainingFunctions.clip_schedule(step_count)
-
-        entropy_coefficient = TrainingFunctions.curiosity_schedule(step_count)
-
-        # weights at start of update
-        self.target_actor_critic.set_weights(self.actor_critic.get_weights())
-
-        with self.writer.as_default():
-            tf.summary.scalar('lr', lr, step=step_count)
-            tf.summary.scalar('clip', clip, step=step_count)
-            tf.summary.scalar('entropy_coefficient', entropy_coefficient, step=step_count)
-
-        self.actor_critic.optimizer.lr.assign(lr)
-        self.actor_critic.optimizer_critic.lr.assign(lr)
-        self.random_network_estimator.optimizer.lr.assign(lr)
-
-        self.update_networks_batch_args(tf.constant(step_count, tf.int64),
-                                        states,
-                                        actions,
-                                        rewards,
-                                        intrinsic_rewards,
-                                        gae,
-                                        tf.constant(clip, tf.float32),
-                                        tf.constant(entropy_coefficient, tf.float32),
-                                        states1,
-                                        tf.constant(mean, tf.float32),
-                                        tf.constant(var, tf.float32))
-
-    @tf.function
-    def update_networks_batch_args(self, step_count, states, actions, rewards, intrinsic_rewards, gae, clip, entropy_coefficient, states1, mean, var):
-        from deepagent.experiments.params import params
-        for _ in range(params.TrainingParams.num_updates):
-            for state0_batch, action_batch, total_reward_batch, total_intrinsic_reward_batch, gae_batch, state1_batch in zip(states, actions, rewards, intrinsic_rewards, gae, states1):
-                total_reward_batch = tf.expand_dims(total_reward_batch, axis=-1)
-                gae_batch = tf.expand_dims(gae_batch, axis=-1)
-
-                self.update_networks_tf(step_count, clip, entropy_coefficient, state0_batch, action_batch, total_reward_batch, total_intrinsic_reward_batch, gae_batch, state1_batch, mean, var)
-
-    @tf.function
-    def update_networks_tf(self, step_count, clip, entropy_coefficient, state0_batch, action_batch, total_reward_batch, total_intrinsic_reward_batch, normalized_gae_batch, states1, mean, var):
-        with tf.GradientTape() as tape:
-            loss = self.loss(total_reward_batch, total_intrinsic_reward_batch, action_batch, normalized_gae_batch, clip, entropy_coefficient, state0_batch)
-            gradients = tape.gradient(loss, self.actor_critic.trainable_variables)
-            self.actor_critic.optimizer.apply_gradients(zip(gradients, self.actor_critic.trainable_variables))
-
-        with tf.GradientTape() as tape:
-            loss = self.prediction_loss(states1, mean, var)
-            gradients = tape.gradient(loss, self.random_network_estimator.trainable_variables)
-            self.random_network_estimator.optimizer.apply_gradients(zip(gradients, self.random_network_estimator.trainable_variables))
-
-        with self.writer.as_default():
-            tf.summary.scalar('loss', loss, step=step_count)
-
-    def pre_train(self, bc_memory: BCMemory):
-        raise NotImplementedError
