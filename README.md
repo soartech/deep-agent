@@ -25,5 +25,5 @@ pip install -e baselines
 # Training
 python -m deepagent.experiments.experiment_runner -p nature_ppo_racer -et train
 # Testing
-python -m deepagent.experiments.experiment_runner -p nature_ppo_racer -et test
+python -m deepagent.experiments.experiment_runner -p nature_ppo_racer -et test -w <numbered weights directory, e.g. 3>
 ```
