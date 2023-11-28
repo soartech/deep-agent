@@ -77,8 +77,8 @@ def create_actor_critic_image(state_space: DeepAgentSpace, action_space: DeepAge
         for i in action_space.vector_space.nvec:
             l = Dense(i, kernel_initializer=kernel_init, kernel_regularizer=kernel_reg)(a)
             logits_list.append(l)
-            a = Activation('softmax')(l)
-            actions.append(a)
+            act = Activation('softmax')(l)
+            actions.append(act)
     else:
         raise Exception('unknown action space')
 
@@ -157,8 +157,8 @@ def create_actor_critic_image_vector(state_space: DeepAgentSpace, action_space: 
         for i in action_space.vector_space.nvec:
             l = Dense(i, kernel_initializer=kernel_init, kernel_regularizer=kernel_reg)(a)
             logits_list.append(l)
-            a = Activation('softmax')(l)
-            actions.append(a)
+            act = Activation('softmax')(l)
+            actions.append(act)
     else:
         raise Exception('unknown action space')
 
@@ -218,8 +218,8 @@ def create_actor_critic_vector(state_space: DeepAgentSpace, action_space: DeepAg
         for i in action_space.vector_space.nvec:
             l = Dense(i, kernel_initializer=kernel_init, kernel_regularizer=kernel_reg)(a)
             logits_list.append(l)
-            a = Activation('softmax')(l)
-            actions.append(a)
+            act = Activation('softmax')(l)
+            actions.append(act)
     else:
         raise Exception('unknown action space')
 
